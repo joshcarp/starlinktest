@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Starlink Drive Tester - Local v2</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --good:#22c55e; --ok:#eab308; --bad:#ef4444; --accent:#38bdf8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text); }
+    header { padding: 12px 14px; position: sticky; top:0; z-index:1000; background:rgba(15,23,42,.96); backdrop-filter: blur(8px); border-bottom:1px solid rgba(255,255,255,.08); }
+    h1 { font-size: 18px; margin:0 0 8px; }
+    .controls { display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; }
+    button, input, select { border:0; border-radius: 10px; padding:10px; font-size: 14px; }
+    button { color:#06111c; background:var(--accent); font-weight:700; }
+    button.secondary { background:#334155; color:var(--text); }
+    button.danger { background:var(--bad); color:#fff; }
+    button:disabled { opacity:.45; }
+    main { display:grid; grid-template-rows: auto 1fr auto; min-height: calc(100vh - 96px); }
+    .stats { display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; padding:10px; }
+    .stat { background:var(--card); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:10px; min-height:62px; }
+    .label { color:var(--muted); font-size:12px; }
+    .value { font-size:20px; font-weight:800; margin-top:4px; }
+    #map { height: 50vh; min-height:320px; background:#1f2937; }
+    .panel { padding:10px; display:grid; gap:8px; background:#0b1220; border-top:1px solid rgba(255,255,255,.08); }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; }
+    .hint { color:var(--muted); font-size:12px; line-height:1.35; }
+    .warn { color:#fde68a; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#1f2937; color:var(--muted); font-size:12px; }
+    .log { max-height:110px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background:#020617; border-radius:10px; padding:8px; font-size:12px; color:#cbd5e1; }
+    @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } .controls { grid-template-columns: 1fr 1fr; } #exportJson { display:none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Starlink Drive Tester <span id="state" class="pill">stopped</span></h1>
+    <div class="controls">
+      <button id="startBtn">Ask + start GPS</button>
+      <button id="noGpsBtn" class="secondary">Start no GPS</button>
+      <button id="stopBtn" class="danger" disabled>Stop</button>
+      <button id="clearBtn" class="secondary">Clear</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="stats">
+      <div class="stat"><div class="label">Last check</div><div id="latency" class="value">—</div></div>
+      <div class="stat"><div class="label">Dropouts</div><div id="dropouts" class="value">0</div></div>
+      <div class="stat"><div class="label">Samples</div><div id="samples" class="value">0</div></div>
+      <div class="stat"><div class="label">GPS</div><div id="gps" class="value">—</div></div>
+    </section>
+    <div id="map"></div>
+    <section class="panel">
+      <div class="row">
+        <select id="target">
+          <option value="https://www.gstatic.com/generate_204">Google 204 tiny check</option>
+          <option value="https://cloudflare.com/cdn-cgi/trace">Cloudflare trace</option>
+          <option value="https://one.one.one.one/cdn-cgi/trace">1.1.1.1 trace</option>
+        </select>
+        <select id="interval"><option value="1000">1 second</option><option value="2000">2 seconds</option><option value="5000">5 seconds</option></select>
+      </div>
+      <div class="row3">
+        <button id="testGpsBtn" class="secondary">Test GPS prompt</button>
+        <button id="exportCsv" class="secondary">Export CSV</button>
+        <button id="exportJson" class="secondary">Export GeoJSON</button>
+      </div>
+      <div id="message" class="hint"></div>
+      <div id="log" class="log"></div>
+      <div class="hint warn">Local-file note: Android Chrome may still block GPS from Downloads/My Files. This version only asks after a button tap and gives better errors. If GPS stays blocked, use “Start no GPS” to test Starlink latency, or open this file through localhost / HTTPS for mapped logging.</div>
+    </section>
+  </main>
+
+<script>
+const $ = id => document.getElementById(id);
+let map, layer, marker;
+let running = false, timer = null, watchId = null, latestPos = null;
+let rows = [], dropoutCount = 0;
+
+function log(msg) {
+  const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  $('log').textContent = line + '\n' + $('log').textContent;
+}
+function setMsg(msg) { $('message').textContent = msg; log(msg); }
+function initMap() {
+  if (map || !window.L) return;
+  map = L.map('map').setView([48.4284, -123.3656], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  layer = L.layerGroup().addTo(map);
+}
+function colorFor(ms, ok) { if (!ok) return '#ef4444'; if (ms < 250) return '#22c55e'; if (ms < 800) return '#eab308'; return '#ef4444'; }
+function updateStats(last) {
+  $('latency').textContent = last ? (last.ok ? `${Math.round(last.latency_ms)} ms` : 'fail') : '—';
+  $('dropouts').textContent = dropoutCount;
+  $('samples').textContent = rows.length;
+  $('gps').textContent = latestPos ? `${Math.round(latestPos.coords.accuracy)} m` : 'none';
+  $('state').textContent = running ? 'logging' : 'stopped';
+}
+async function checkNetwork() {
+  const target = $('target').value + ( $('target').value.includes('?') ? '&' : '?' ) + 't=' + Date.now();
+  const start = performance.now();
+  let ok = false, err = '';
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 4500);
+    await fetch(target, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(timeout); ok = true;
+  } catch(e) { err = e.name || String(e); }
+  const latency = performance.now() - start;
+  if (!ok) dropoutCount++;
+  const p = latestPos;
+  const row = {
+    timestamp: new Date().toISOString(), ok, latency_ms: Math.round(latency), error: err,
+    latitude: p ? p.coords.latitude : '', longitude: p ? p.coords.longitude : '', accuracy_m: p ? Math.round(p.coords.accuracy) : '',
+    speed_mps: p && p.coords.speed != null ? p.coords.speed : '', heading_deg: p && p.coords.heading != null ? p.coords.heading : ''
+  };
+  rows.push(row); updateStats(row);
+  if (p && map && layer) {
+    const c = colorFor(latency, ok);
+    L.circleMarker([p.coords.latitude, p.coords.longitude], { radius: 5, color: c, fillColor: c, fillOpacity: .85, weight: 1 })
+      .bindPopup(`${row.timestamp}<br>${ok ? row.latency_ms + ' ms' : 'FAIL'}<br>Accuracy: ${row.accuracy_m} m`).addTo(layer);
+    if (!marker) marker = L.marker([p.coords.latitude, p.coords.longitude]).addTo(map);
+    marker.setLatLng([p.coords.latitude, p.coords.longitude]);
+    if (rows.length < 4) map.setView([p.coords.latitude, p.coords.longitude], 15);
+  }
+}
+function startNetworkLoop() {
+  running = true; $('startBtn').disabled = true; $('noGpsBtn').disabled = true; $('stopBtn').disabled = false;
+  updateStats(); checkNetwork(); timer = setInterval(checkNetwork, Number($('interval').value));
+}
+async function requestGPS(startAfter) {
+  if (!('geolocation' in navigator)) { setMsg('This browser does not expose geolocation.'); return false; }
+  setMsg('Requesting location permission now. Look for the browser permission pop-up.');
+  return new Promise(resolve => {
+    let resolved = false;
+    navigator.geolocation.getCurrentPosition(pos => {
+      latestPos = pos; updateStats(); setMsg('GPS permission granted. Starting live location watch.');
+      watchId = navigator.geolocation.watchPosition(p => { latestPos = p; updateStats(); }, err => { setMsg('GPS watch error: ' + err.message); }, { enableHighAccuracy:true, maximumAge:1000, timeout:10000 });
+      if (startAfter) startNetworkLoop(); resolved = true; resolve(true);
+    }, err => {
+      let extra = '';
+      if (location.protocol === 'file:') extra = ' You are opening a local file; Android Chrome often blocks location for file:// pages.';
+      setMsg('GPS failed: ' + err.message + extra);
+      resolved = true; resolve(false);
+    }, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
+    setTimeout(() => { if (!resolved) setMsg('Still waiting for GPS. Check Android location is on and Chrome has location permission.'); }, 6000);
+  });
+}
+function stop() {
+  running = false; clearInterval(timer); timer = null;
+  if (watchId != null) navigator.geolocation.clearWatch(watchId); watchId = null;
+  $('startBtn').disabled = false; $('noGpsBtn').disabled = false; $('stopBtn').disabled = true; updateStats(); setMsg('Stopped. Export CSV or GeoJSON when ready.');
+}
+function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000); }
+function csvEscape(v) { return '"' + String(v ?? '').replaceAll('"','""') + '"'; }
+function exportCSV() { const cols = ['timestamp','ok','latency_ms','error','latitude','longitude','accuracy_m','speed_mps','heading_deg']; download('starlink-drive-test.csv', [cols.join(','), ...rows.map(r=>cols.map(c=>csvEscape(r[c])).join(','))].join('\n'), 'text/csv'); }
+function exportGeoJSON() { const features = rows.filter(r=>r.latitude!=='' && r.longitude!=='').map(r=>({type:'Feature', geometry:{type:'Point', coordinates:[Number(r.longitude), Number(r.latitude)]}, properties:r})); download('starlink-drive-test.geojson', JSON.stringify({type:'FeatureCollection', features}, null, 2), 'application/geo+json'); }
+
+window.addEventListener('load', () => {
+  initMap();
+  setMsg(`Ready. Page origin: ${location.protocol}. Press “Ask + start GPS” to trigger the location prompt.`);
+  $('startBtn').onclick = () => requestGPS(true);
+  $('noGpsBtn').onclick = () => { setMsg('Started network-only logging. No map points will be recorded.'); startNetworkLoop(); };
+  $('testGpsBtn').onclick = () => requestGPS(false);
+  $('stopBtn').onclick = stop;
+  $('clearBtn').onclick = () => { rows=[]; dropoutCount=0; latestPos=null; if(layer) layer.clearLayers(); marker=null; updateStats(); setMsg('Cleared samples.'); };
+  $('exportCsv').onclick = exportCSV;
+  $('exportJson').onclick = exportGeoJSON;
+});
+</script>
+</body>
+</html>
