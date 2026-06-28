@@ -3,171 +3,442 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Starlink Drive Tester - Local v2</title>
+  <title>Starlink Drive Tester v3</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --good:#22c55e; --ok:#eab308; --bad:#ef4444; --accent:#38bdf8; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text); }
-    header { padding: 12px 14px; position: sticky; top:0; z-index:1000; background:rgba(15,23,42,.96); backdrop-filter: blur(8px); border-bottom:1px solid rgba(255,255,255,.08); }
-    h1 { font-size: 18px; margin:0 0 8px; }
-    .controls { display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; }
-    button, input, select { border:0; border-radius: 10px; padding:10px; font-size: 14px; }
-    button { color:#06111c; background:var(--accent); font-weight:700; }
-    button.secondary { background:#334155; color:var(--text); }
-    button.danger { background:var(--bad); color:#fff; }
-    button:disabled { opacity:.45; }
-    main { display:grid; grid-template-rows: auto 1fr auto; min-height: calc(100vh - 96px); }
-    .stats { display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; padding:10px; }
-    .stat { background:var(--card); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:10px; min-height:62px; }
-    .label { color:var(--muted); font-size:12px; }
-    .value { font-size:20px; font-weight:800; margin-top:4px; }
-    #map { height: 50vh; min-height:320px; background:#1f2937; }
-    .panel { padding:10px; display:grid; gap:8px; background:#0b1220; border-top:1px solid rgba(255,255,255,.08); }
-    .row { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
-    .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; }
-    .hint { color:var(--muted); font-size:12px; line-height:1.35; }
-    .warn { color:#fde68a; }
-    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#1f2937; color:var(--muted); font-size:12px; }
-    .log { max-height:110px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background:#020617; border-radius:10px; padding:8px; font-size:12px; color:#cbd5e1; }
-    @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } .controls { grid-template-columns: 1fr 1fr; } #exportJson { display:none; } }
+    :root{
+      --bg:#0f172a; --panel:#0b1220; --card:#111827; --muted:#94a3b8; --text:#e5e7eb;
+      --good:#22c55e; --ok:#eab308; --bad:#ef4444; --accent:#38bdf8; --line:#334155;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    header{padding:12px 14px;position:sticky;top:0;z-index:1000;background:rgba(15,23,42,.96);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.08)}
+    h1{font-size:18px;margin:0 0 8px}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#1f2937;color:var(--muted);font-size:12px}
+    .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    button,input,select{border:0;border-radius:10px;padding:10px;font-size:14px}
+    button{color:#06111c;background:var(--accent);font-weight:800}
+    button.secondary{background:#334155;color:var(--text)}
+    button.danger{background:var(--bad);color:#fff}
+    button:disabled{opacity:.45}
+    main{display:grid;grid-template-rows:auto auto 1fr auto;min-height:calc(100vh - 98px)}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px}
+    .stat{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px;min-height:68px}
+    .label{color:var(--muted);font-size:12px}
+    .value{font-size:20px;font-weight:900;margin-top:4px}
+    .small{font-size:12px;color:var(--muted);margin-top:2px}
+    #map{height:45vh;min-height:300px;background:#1f2937}
+    .panel{padding:10px;display:grid;gap:8px;background:var(--panel);border-top:1px solid rgba(255,255,255,.08)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .hint{color:var(--muted);font-size:12px;line-height:1.35}
+    .warn{color:#fde68a}
+    canvas{width:100%;height:120px;background:#020617;border-radius:12px;border:1px solid rgba(255,255,255,.08)}
+    .log{max-height:95px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#020617;border-radius:10px;padding:8px;font-size:12px;color:#cbd5e1}
+    label{display:block}
+    label span{display:block;color:var(--muted);font-size:12px;margin:0 0 3px}
+    @media(max-width:760px){
+      .stats{grid-template-columns:repeat(2,1fr)}
+      .controls{grid-template-columns:1fr 1fr}
+      .row,.row3,.row4{grid-template-columns:1fr 1fr}
+      #exportJson{display:none}
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Starlink Drive Tester <span id="state" class="pill">stopped</span></h1>
-    <div class="controls">
-      <button id="startBtn">Ask + start GPS</button>
-      <button id="noGpsBtn" class="secondary">Start no GPS</button>
-      <button id="stopBtn" class="danger" disabled>Stop</button>
-      <button id="clearBtn" class="secondary">Clear</button>
-    </div>
-  </header>
+<header>
+  <h1>Starlink Drive Tester v3 <span id="state" class="pill">stopped</span></h1>
+  <div class="controls">
+    <button id="startBtn">Ask + start GPS</button>
+    <button id="noGpsBtn" class="secondary">Start no GPS</button>
+    <button id="stopBtn" class="danger" disabled>Stop</button>
+    <button id="clearBtn" class="secondary">Clear</button>
+  </div>
+</header>
 
-  <main>
-    <section class="stats">
-      <div class="stat"><div class="label">Last check</div><div id="latency" class="value">—</div></div>
-      <div class="stat"><div class="label">Dropouts</div><div id="dropouts" class="value">0</div></div>
-      <div class="stat"><div class="label">Samples</div><div id="samples" class="value">0</div></div>
-      <div class="stat"><div class="label">GPS</div><div id="gps" class="value">—</div></div>
-    </section>
-    <div id="map"></div>
-    <section class="panel">
-      <div class="row">
-        <select id="target">
-          <option value="https://www.gstatic.com/generate_204">Google 204 tiny check</option>
-          <option value="https://cloudflare.com/cdn-cgi/trace">Cloudflare trace</option>
-          <option value="https://one.one.one.one/cdn-cgi/trace">1.1.1.1 trace</option>
-        </select>
-        <select id="interval"><option value="1000">1 second</option><option value="2000">2 seconds</option><option value="5000">5 seconds</option></select>
-      </div>
-      <div class="row3">
-        <button id="testGpsBtn" class="secondary">Test GPS prompt</button>
-        <button id="exportCsv" class="secondary">Export CSV</button>
-        <button id="exportJson" class="secondary">Export GeoJSON</button>
-      </div>
-      <div id="message" class="hint"></div>
-      <div id="log" class="log"></div>
-      <div class="hint warn">Local-file note: Android Chrome may still block GPS from Downloads/My Files. This version only asks after a button tap and gives better errors. If GPS stays blocked, use “Start no GPS” to test Starlink latency, or open this file through localhost / HTTPS for mapped logging.</div>
-    </section>
-  </main>
+<main>
+  <section class="stats">
+    <div class="stat"><div class="label">Latency now</div><div id="latencyNow" class="value">â€”</div><div id="latencySub" class="small">p95 â€” / jitter â€”</div></div>
+    <div class="stat"><div class="label">Download</div><div id="downloadNow" class="value">â€”</div><div id="downloadSub" class="small">avg â€”</div></div>
+    <div class="stat"><div class="label">Upload</div><div id="uploadNow" class="value">â€”</div><div id="uploadSub" class="small">avg â€”</div></div>
+    <div class="stat"><div class="label">Loss / outages</div><div id="lossNow" class="value">0%</div><div id="outageSub" class="small">0 outages / 0s down</div></div>
+    <div class="stat"><div class="label">Samples</div><div id="samplesNow" class="value">0</div><div id="durationSub" class="small">0:00</div></div>
+    <div class="stat"><div class="label">GPS</div><div id="gpsNow" class="value">â€”</div><div id="speedSub" class="small">speed â€”</div></div>
+    <div class="stat"><div class="label">Best / worst latency</div><div id="bestWorst" class="value">â€”</div><div class="small">successful checks only</div></div>
+    <div class="stat"><div class="label">Distance</div><div id="distanceNow" class="value">â€”</div><div class="small">GPS estimate</div></div>
+  </section>
+
+  <canvas id="chart" width="1000" height="240"></canvas>
+  <div id="map"></div>
+
+  <section class="panel">
+    <div class="row">
+      <label><span>Latency test URL</span><input id="latencyUrl" value="https://www.gstatic.com/generate_204" style="width:100%"></label>
+      <label><span>Latency interval</span><select id="latencyInterval" style="width:100%"><option value="1000">1 second</option><option value="2000">2 seconds</option><option value="5000">5 seconds</option></select></label>
+    </div>
+
+    <div class="row4">
+      <label><span>Download URL</span><select id="downloadUrl" style="width:100%">
+        <option value="https://speed.cloudflare.com/__down?bytes=25000000">Cloudflare 25 MB</option>
+        <option value="https://speed.cloudflare.com/__down?bytes=10000000">Cloudflare 10 MB</option>
+        <option value="https://speed.cloudflare.com/__down?bytes=5000000">Cloudflare 5 MB</option>
+      </select></label>
+      <label><span>Download interval</span><select id="downloadInterval" style="width:100%">
+        <option value="0">off</option>
+        <option value="30000" selected>30 seconds</option>
+        <option value="60000">60 seconds</option>
+        <option value="120000">2 minutes</option>
+      </select></label>
+      <label><span>Upload interval</span><select id="uploadInterval" style="width:100%">
+        <option value="0" selected>off</option>
+        <option value="120000">2 minutes</option>
+        <option value="300000">5 minutes</option>
+      </select></label>
+      <label><span>Upload size</span><select id="uploadBytes" style="width:100%">
+        <option value="250000">250 KB</option>
+        <option value="1000000" selected>1 MB</option>
+        <option value="5000000">5 MB</option>
+      </select></label>
+    </div>
+
+    <div class="row3">
+      <button id="oneDownload" class="secondary">Run download test</button>
+      <button id="oneUpload" class="secondary">Run upload test</button>
+      <button id="centerBtn" class="secondary">Center map</button>
+    </div>
+    <div class="row3">
+      <button id="exportCsv" class="secondary">Export CSV</button>
+      <button id="exportJson" class="secondary">Export GeoJSON</button>
+      <button id="copySummary" class="secondary">Copy summary</button>
+    </div>
+
+    <div id="message" class="hint"></div>
+    <div id="log" class="log"></div>
+    <div class="hint warn">
+      Notes: browser â€œpingâ€ is request timing, not ICMP ping. Download/upload throughput is approximate and uses real data.
+      Upload uses Cloudflareâ€™s speed endpoint; if it fails due to browser/CORS restrictions, leave upload off and use download + latency.
+      For Android location, HTTPS or localhost works best; local file:// may still block GPS.
+    </div>
+  </section>
+</main>
 
 <script>
 const $ = id => document.getElementById(id);
-let map, layer, marker;
-let running = false, timer = null, watchId = null, latestPos = null;
-let rows = [], dropoutCount = 0;
+let map, layer, lineLayer, marker;
+let running=false, startedAt=null, latestPos=null, watchId=null;
+let latencyTimer=null, downloadTimer=null, uploadTimer=null;
+let rows=[], lastDownloadMbps=null, lastUploadMbps=null, lastPoint=null, distanceM=0;
+let outageOpen=false, outageStartedAt=null, outages=[], totalDownMs=0;
 
-function log(msg) {
-  const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  $('log').textContent = line + '\n' + $('log').textContent;
+function log(msg){
+  const line='['+new Date().toLocaleTimeString()+'] '+msg;
+  $('log').textContent=line+'\n'+$('log').textContent;
 }
-function setMsg(msg) { $('message').textContent = msg; log(msg); }
-function initMap() {
-  if (map || !window.L) return;
-  map = L.map('map').setView([48.4284, -123.3656], 11);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
-  layer = L.layerGroup().addTo(map);
+function setMsg(msg){ $('message').textContent=msg; log(msg); }
+function fmtDur(ms){
+  const s=Math.floor(ms/1000), m=Math.floor(s/60), r=s%60;
+  return m+':'+String(r).padStart(2,'0');
 }
-function colorFor(ms, ok) { if (!ok) return '#ef4444'; if (ms < 250) return '#22c55e'; if (ms < 800) return '#eab308'; return '#ef4444'; }
-function updateStats(last) {
-  $('latency').textContent = last ? (last.ok ? `${Math.round(last.latency_ms)} ms` : 'fail') : '—';
-  $('dropouts').textContent = dropoutCount;
-  $('samples').textContent = rows.length;
-  $('gps').textContent = latestPos ? `${Math.round(latestPos.coords.accuracy)} m` : 'none';
-  $('state').textContent = running ? 'logging' : 'stopped';
+function haversine(a,b){
+  const R=6371000, toRad=x=>x*Math.PI/180;
+  const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
+  const lat1=toRad(a.lat), lat2=toRad(b.lat);
+  const h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
 }
-async function checkNetwork() {
-  const target = $('target').value + ( $('target').value.includes('?') ? '&' : '?' ) + 't=' + Date.now();
-  const start = performance.now();
-  let ok = false, err = '';
-  try {
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 4500);
-    await fetch(target, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal });
-    clearTimeout(timeout); ok = true;
-  } catch(e) { err = e.name || String(e); }
-  const latency = performance.now() - start;
-  if (!ok) dropoutCount++;
-  const p = latestPos;
-  const row = {
-    timestamp: new Date().toISOString(), ok, latency_ms: Math.round(latency), error: err,
-    latitude: p ? p.coords.latitude : '', longitude: p ? p.coords.longitude : '', accuracy_m: p ? Math.round(p.coords.accuracy) : '',
-    speed_mps: p && p.coords.speed != null ? p.coords.speed : '', heading_deg: p && p.coords.heading != null ? p.coords.heading : ''
-  };
-  rows.push(row); updateStats(row);
-  if (p && map && layer) {
-    const c = colorFor(latency, ok);
-    L.circleMarker([p.coords.latitude, p.coords.longitude], { radius: 5, color: c, fillColor: c, fillOpacity: .85, weight: 1 })
-      .bindPopup(`${row.timestamp}<br>${ok ? row.latency_ms + ' ms' : 'FAIL'}<br>Accuracy: ${row.accuracy_m} m`).addTo(layer);
-    if (!marker) marker = L.marker([p.coords.latitude, p.coords.longitude]).addTo(map);
-    marker.setLatLng([p.coords.latitude, p.coords.longitude]);
-    if (rows.length < 4) map.setView([p.coords.latitude, p.coords.longitude], 15);
+function percentile(vals,p){
+  if(!vals.length) return null;
+  const sorted=[...vals].sort((a,b)=>a-b);
+  const idx=(sorted.length-1)*p;
+  const lo=Math.floor(idx), hi=Math.ceil(idx);
+  if(lo===hi) return sorted[lo];
+  return sorted[lo]*(hi-idx)+sorted[hi]*(idx-lo);
+}
+function avg(vals){ return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null; }
+function colorFor(row){
+  if(!row.ok) return '#ef4444';
+  const d=row.download_mbps ?? lastDownloadMbps;
+  if(d!=null){
+    if(d>=50 && row.latency_ms<250) return '#22c55e';
+    if(d>=15 && row.latency_ms<800) return '#eab308';
+    return '#ef4444';
+  }
+  if(row.latency_ms<250) return '#22c55e';
+  if(row.latency_ms<800) return '#eab308';
+  return '#ef4444';
+}
+function initMap(){
+  if(map || !window.L) return;
+  map=L.map('map').setView([48.4284,-123.3656],11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+  layer=L.layerGroup().addTo(map);
+  lineLayer=L.polyline([],{weight:4,opacity:.65,color:'#38bdf8'}).addTo(map);
+}
+function drawChart(){
+  const c=$('chart'), ctx=c.getContext('2d'), w=c.width, h=c.height;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#020617'; ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=1;
+  for(let i=1;i<4;i++){ const y=i*h/4; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  const recent=rows.slice(-180);
+  if(!recent.length) return;
+  const latVals=recent.filter(r=>r.ok && r.latency_ms!=null).map(r=>r.latency_ms);
+  const dlVals=recent.filter(r=>r.download_mbps!=null).map(r=>r.download_mbps);
+  const maxLat=Math.max(300, percentile(latVals,.95)||300, ...latVals);
+  const maxDl=Math.max(50, ...dlVals, lastDownloadMbps||0);
+
+  function line(vals, getY, color){
+    ctx.strokeStyle=color; ctx.lineWidth=3; ctx.beginPath(); let moved=false;
+    recent.forEach((r,i)=>{
+      const v=vals(r); if(v==null || Number.isNaN(v)) return;
+      const x=i/(Math.max(1,recent.length-1))*w, y=getY(v);
+      if(!moved){ctx.moveTo(x,y); moved=true;} else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  }
+  line(r=>r.ok ? r.latency_ms : maxLat, v=>h-(Math.min(v,maxLat)/maxLat*h), '#38bdf8');
+  line(r=>r.download_mbps, v=>h-(Math.min(v,maxDl)/maxDl*h), '#22c55e');
+  ctx.fillStyle='#cbd5e1'; ctx.font='18px system-ui';
+  ctx.fillText('Latency ms (blue) + download Mbps (green), recent samples', 12, 24);
+}
+function updateStats(){
+  const successful=rows.filter(r=>r.ok && r.latency_ms!=null);
+  const lat=successful.map(r=>r.latency_ms);
+  const downloads=rows.filter(r=>r.download_mbps!=null).map(r=>r.download_mbps);
+  const uploads=rows.filter(r=>r.upload_mbps!=null).map(r=>r.upload_mbps);
+  const failures=rows.filter(r=>!r.ok).length;
+  const loss=rows.length ? failures/rows.length*100 : 0;
+  const jitter=lat.length>1 ? avg(lat.slice(1).map((v,i)=>Math.abs(v-lat[i]))) : null;
+  const p95=percentile(lat,.95);
+  const last=rows[rows.length-1];
+
+  $('latencyNow').textContent=last ? (last.ok ? Math.round(last.latency_ms)+' ms' : 'FAIL') : 'â€”';
+  $('latencySub').textContent='p95 '+(p95?Math.round(p95)+' ms':'â€”')+' / jitter '+(jitter?Math.round(jitter)+' ms':'â€”');
+  $('downloadNow').textContent=lastDownloadMbps!=null ? lastDownloadMbps.toFixed(1)+' Mbps' : 'â€”';
+  $('downloadSub').textContent='avg '+(downloads.length?avg(downloads).toFixed(1)+' Mbps':'â€”');
+  $('uploadNow').textContent=lastUploadMbps!=null ? lastUploadMbps.toFixed(1)+' Mbps' : 'â€”';
+  $('uploadSub').textContent='avg '+(uploads.length?avg(uploads).toFixed(1)+' Mbps':'â€”');
+  $('lossNow').textContent=loss.toFixed(1)+'%';
+  const currentDown=outageOpen ? Date.now()-outageStartedAt : 0;
+  $('outageSub').textContent=outages.length+' outages / '+fmtDur(totalDownMs+currentDown)+' down';
+  $('samplesNow').textContent=rows.length;
+  $('durationSub').textContent=startedAt ? fmtDur(Date.now()-startedAt) : '0:00';
+  $('gpsNow').textContent=latestPos ? 'Â±'+Math.round(latestPos.coords.accuracy)+' m' : 'none';
+  $('speedSub').textContent=latestPos && latestPos.coords.speed!=null ? (latestPos.coords.speed*3.6).toFixed(1)+' km/h' : 'speed â€”';
+  $('bestWorst').textContent=lat.length ? Math.round(Math.min(...lat))+' / '+Math.round(Math.max(...lat))+' ms' : 'â€”';
+  $('distanceNow').textContent=distanceM>1000 ? (distanceM/1000).toFixed(2)+' km' : Math.round(distanceM)+' m';
+  $('state').textContent=running ? 'logging' : 'stopped';
+  drawChart();
+}
+function addMapPoint(row){
+  if(!row.latitude || !row.longitude || !map) return;
+  const latlng=[row.latitude,row.longitude], c=colorFor(row);
+  L.circleMarker(latlng,{radius:5,color:c,fillColor:c,fillOpacity:.9,weight:1})
+    .bindPopup(`${row.timestamp}<br>${row.ok?Math.round(row.latency_ms)+' ms':'FAIL'}<br>Down: ${row.download_mbps??'â€”'} Mbps<br>Up: ${row.upload_mbps??'â€”'} Mbps<br>GPS Â±${row.accuracy_m} m`)
+    .addTo(layer);
+  lineLayer.addLatLng(latlng);
+  if(!marker) marker=L.marker(latlng).addTo(map); else marker.setLatLng(latlng);
+  if(rows.length<4) map.setView(latlng,15);
+}
+function trackDistance(pos){
+  if(!pos) return;
+  const p={lat:pos.coords.latitude,lon:pos.coords.longitude};
+  if(lastPoint){
+    const d=haversine(lastPoint,p);
+    if(d<300) distanceM+=d; // ignore giant GPS jumps
+  }
+  lastPoint=p;
+}
+function updateOutage(ok){
+  const now=Date.now();
+  if(!ok && !outageOpen){ outageOpen=true; outageStartedAt=now; }
+  if(ok && outageOpen){
+    const dur=now-outageStartedAt;
+    outages.push({started_at:new Date(outageStartedAt).toISOString(), duration_ms:dur});
+    totalDownMs+=dur; outageOpen=false; outageStartedAt=null;
   }
 }
-function startNetworkLoop() {
-  running = true; $('startBtn').disabled = true; $('noGpsBtn').disabled = true; $('stopBtn').disabled = false;
-  updateStats(); checkNetwork(); timer = setInterval(checkNetwork, Number($('interval').value));
-}
-async function requestGPS(startAfter) {
-  if (!('geolocation' in navigator)) { setMsg('This browser does not expose geolocation.'); return false; }
-  setMsg('Requesting location permission now. Look for the browser permission pop-up.');
-  return new Promise(resolve => {
-    let resolved = false;
-    navigator.geolocation.getCurrentPosition(pos => {
-      latestPos = pos; updateStats(); setMsg('GPS permission granted. Starting live location watch.');
-      watchId = navigator.geolocation.watchPosition(p => { latestPos = p; updateStats(); }, err => { setMsg('GPS watch error: ' + err.message); }, { enableHighAccuracy:true, maximumAge:1000, timeout:10000 });
-      if (startAfter) startNetworkLoop(); resolved = true; resolve(true);
-    }, err => {
-      let extra = '';
-      if (location.protocol === 'file:') extra = ' You are opening a local file; Android Chrome often blocks location for file:// pages.';
-      setMsg('GPS failed: ' + err.message + extra);
-      resolved = true; resolve(false);
-    }, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
-    setTimeout(() => { if (!resolved) setMsg('Still waiting for GPS. Check Android location is on and Chrome has location permission.'); }, 6000);
-  });
-}
-function stop() {
-  running = false; clearInterval(timer); timer = null;
-  if (watchId != null) navigator.geolocation.clearWatch(watchId); watchId = null;
-  $('startBtn').disabled = false; $('noGpsBtn').disabled = false; $('stopBtn').disabled = true; updateStats(); setMsg('Stopped. Export CSV or GeoJSON when ready.');
-}
-function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000); }
-function csvEscape(v) { return '"' + String(v ?? '').replaceAll('"','""') + '"'; }
-function exportCSV() { const cols = ['timestamp','ok','latency_ms','error','latitude','longitude','accuracy_m','speed_mps','heading_deg']; download('starlink-drive-test.csv', [cols.join(','), ...rows.map(r=>cols.map(c=>csvEscape(r[c])).join(','))].join('\n'), 'text/csv'); }
-function exportGeoJSON() { const features = rows.filter(r=>r.latitude!=='' && r.longitude!=='').map(r=>({type:'Feature', geometry:{type:'Point', coordinates:[Number(r.longitude), Number(r.latitude)]}, properties:r})); download('starlink-drive-test.geojson', JSON.stringify({type:'FeatureCollection', features}, null, 2), 'application/geo+json'); }
+async function latencyCheck(){
+  const pos=latestPos;
+  const url=$('latencyUrl').value.trim() || 'https://www.gstatic.com/generate_204';
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),4500);
+  const t0=performance.now();
+  let ok=false, latency=null, error='';
+  try{
+    await fetch(url+(url.includes('?')?'&':'?')+'t='+Date.now(),{mode:'no-cors',cache:'no-store',signal:controller.signal});
+    latency=performance.now()-t0; ok=true;
+  }catch(e){ latency=performance.now()-t0; error=e.name||String(e); }
+  clearTimeout(timeout);
+  updateOutage(ok);
 
-window.addEventListener('load', () => {
-  initMap();
-  setMsg(`Ready. Page origin: ${location.protocol}. Press “Ask + start GPS” to trigger the location prompt.`);
-  $('startBtn').onclick = () => requestGPS(true);
-  $('noGpsBtn').onclick = () => { setMsg('Started network-only logging. No map points will be recorded.'); startNetworkLoop(); };
-  $('testGpsBtn').onclick = () => requestGPS(false);
-  $('stopBtn').onclick = stop;
-  $('clearBtn').onclick = () => { rows=[]; dropoutCount=0; latestPos=null; if(layer) layer.clearLayers(); marker=null; updateStats(); setMsg('Cleared samples.'); };
-  $('exportCsv').onclick = exportCSV;
-  $('exportJson').onclick = exportGeoJSON;
+  const row={
+    type:'latency',
+    timestamp:new Date().toISOString(),
+    elapsed_s:startedAt ? Math.round((Date.now()-startedAt)/1000) : 0,
+    ok,
+    latency_ms: ok ? Math.round(latency) : null,
+    error,
+    download_mbps:null,
+    upload_mbps:null,
+    latitude:pos?pos.coords.latitude:null,
+    longitude:pos?pos.coords.longitude:null,
+    accuracy_m:pos?Math.round(pos.coords.accuracy):null,
+    gps_speed_kmh:pos&&pos.coords.speed!=null ? +(pos.coords.speed*3.6).toFixed(1) : null,
+    heading_deg:pos&&pos.coords.heading!=null ? pos.coords.heading : null,
+    distance_m:Math.round(distanceM)
+  };
+  rows.push(row); addMapPoint(row); updateStats();
+}
+async function runDownload(){
+  const url=$('downloadUrl').value;
+  setMsg('Running download throughput test...');
+  const t0=performance.now(); let bytes=0, ok=false, error='';
+  try{
+    const res=await fetch(url+'&t='+Date.now(),{cache:'no-store'});
+    const reader=res.body.getReader();
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      bytes+=value.byteLength;
+    }
+    ok=true;
+  }catch(e){ error=e.name||String(e); }
+  const seconds=(performance.now()-t0)/1000;
+  const mbps=ok && seconds>0 ? (bytes*8/seconds/1_000_000) : null;
+  lastDownloadMbps=mbps;
+  rows.push({
+    type:'download', timestamp:new Date().toISOString(), elapsed_s:startedAt?Math.round((Date.now()-startedAt)/1000):0,
+    ok, latency_ms:null, error, download_mbps:mbps?+mbps.toFixed(2):null, upload_mbps:null,
+    latitude:latestPos?latestPos.coords.latitude:null, longitude:latestPos?latestPos.coords.longitude:null,
+    accuracy_m:latestPos?Math.round(latestPos.coords.accuracy):null,
+    gps_speed_kmh:latestPos&&latestPos.coords.speed!=null ? +(latestPos.coords.speed*3.6).toFixed(1):null,
+    heading_deg:latestPos&&latestPos.coords.heading!=null ? latestPos.coords.heading:null,
+    distance_m:Math.round(distanceM)
+  });
+  setMsg(ok ? 'Download: '+mbps.toFixed(1)+' Mbps' : 'Download failed: '+error);
+  updateStats();
+}
+async function runUpload(){
+  const size=Number($('uploadBytes').value);
+  setMsg('Running upload throughput test...');
+  const data=new Uint8Array(size);
+  crypto.getRandomValues(data);
+  const t0=performance.now(); let ok=false, error='';
+  try{
+    await fetch('https://speed.cloudflare.com/__up?t='+Date.now(), {method:'POST', body:data, cache:'no-store'});
+    ok=true;
+  }catch(e){ error=e.name||String(e); }
+  const seconds=(performance.now()-t0)/1000;
+  const mbps=ok && seconds>0 ? (size*8/seconds/1_000_000) : null;
+  lastUploadMbps=mbps;
+  rows.push({
+    type:'upload', timestamp:new Date().toISOString(), elapsed_s:startedAt?Math.round((Date.now()-startedAt)/1000):0,
+    ok, latency_ms:null, error, download_mbps:null, upload_mbps:mbps?+mbps.toFixed(2):null,
+    latitude:latestPos?latestPos.coords.latitude:null, longitude:latestPos?latestPos.coords.longitude:null,
+    accuracy_m:latestPos?Math.round(latestPos.coords.accuracy):null,
+    gps_speed_kmh:latestPos&&latestPos.coords.speed!=null ? +(latestPos.coords.speed*3.6).toFixed(1):null,
+    heading_deg:latestPos&&latestPos.coords.heading!=null ? latestPos.coords.heading:null,
+    distance_m:Math.round(distanceM)
+  });
+  setMsg(ok ? 'Upload: '+mbps.toFixed(1)+' Mbps' : 'Upload failed: '+error);
+  updateStats();
+}
+function startLoops(){
+  running=true; startedAt=Date.now();
+  $('startBtn').disabled=true; $('noGpsBtn').disabled=true; $('stopBtn').disabled=false;
+  latencyCheck();
+  latencyTimer=setInterval(latencyCheck, Number($('latencyInterval').value));
+  const dl=Number($('downloadInterval').value);
+  if(dl>0){ setTimeout(runDownload, 3000); downloadTimer=setInterval(runDownload, dl); }
+  const ul=Number($('uploadInterval').value);
+  if(ul>0){ setTimeout(runUpload, 10000); uploadTimer=setInterval(runUpload, ul); }
+  updateStats();
+}
+function requestGPSAndStart(){
+  if(!('geolocation' in navigator)){ setMsg('Geolocation not supported. Use Start no GPS.'); return; }
+  setMsg('Requesting location permission...');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    latestPos=pos; trackDistance(pos);
+    watchId=navigator.geolocation.watchPosition(p=>{latestPos=p; trackDistance(p); updateStats();}, err=>setMsg('GPS watch error: '+err.message), {enableHighAccuracy:true,maximumAge:1000,timeout:10000});
+    setMsg('GPS granted. Starting tests.');
+    startLoops();
+  }, err=>{
+    let extra=location.protocol==='file:'?' Local file:// pages are often blocked by Android Chrome.':'';
+    setMsg('GPS failed: '+err.message+'.'+extra);
+  }, {enableHighAccuracy:true,maximumAge:0,timeout:15000});
+}
+function startNoGPS(){ setMsg('Started without GPS. Throughput and latency will log without map points.'); startLoops(); }
+function stop(){
+  running=false;
+  [latencyTimer,downloadTimer,uploadTimer].forEach(t=>{ if(t) clearInterval(t); });
+  latencyTimer=downloadTimer=uploadTimer=null;
+  if(watchId!=null) navigator.geolocation.clearWatch(watchId);
+  watchId=null;
+  if(outageOpen){
+    const dur=Date.now()-outageStartedAt; totalDownMs+=dur; outages.push({started_at:new Date(outageStartedAt).toISOString(),duration_ms:dur});
+    outageOpen=false; outageStartedAt=null;
+  }
+  $('startBtn').disabled=false; $('noGpsBtn').disabled=false; $('stopBtn').disabled=true;
+  setMsg('Stopped. Export CSV/GeoJSON or copy summary.');
+  updateStats();
+}
+function clearAll(){
+  stop(); rows=[]; latestPos=null; lastDownloadMbps=null; lastUploadMbps=null; lastPoint=null; distanceM=0; outages=[]; totalDownMs=0;
+  if(layer) layer.clearLayers(); if(lineLayer) lineLayer.setLatLngs([]); if(marker){map.removeLayer(marker); marker=null;}
+  updateStats(); setMsg('Cleared all samples.');
+}
+function download(name,text,type){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function csvEscape(v){ return v==null?'':'"'+String(v).replaceAll('"','""')+'"'; }
+function exportCSV(){
+  const cols=['type','timestamp','elapsed_s','ok','latency_ms','download_mbps','upload_mbps','error','latitude','longitude','accuracy_m','gps_speed_kmh','heading_deg','distance_m'];
+  download('starlink-drive-test-v3.csv',[cols.join(','),...rows.map(r=>cols.map(c=>csvEscape(r[c])).join(','))].join('\n'),'text/csv');
+}
+function exportGeoJSON(){
+  const features=rows.filter(r=>r.latitude!=null&&r.longitude!=null).map(r=>({type:'Feature',geometry:{type:'Point',coordinates:[r.longitude,r.latitude]},properties:r}));
+  download('starlink-drive-test-v3.geojson',JSON.stringify({type:'FeatureCollection',features},null,2),'application/geo+json');
+}
+function summaryText(){
+  const successful=rows.filter(r=>r.ok&&r.latency_ms!=null).map(r=>r.latency_ms);
+  const downloads=rows.filter(r=>r.download_mbps!=null).map(r=>r.download_mbps);
+  const uploads=rows.filter(r=>r.upload_mbps!=null).map(r=>r.upload_mbps);
+  const loss=rows.length?rows.filter(r=>!r.ok).length/rows.length*100:0;
+  return [
+    'Starlink Drive Test v3 summary',
+    'Duration: '+(startedAt?fmtDur(Date.now()-startedAt):'0:00'),
+    'Samples: '+rows.length,
+    'Loss: '+loss.toFixed(1)+'%',
+    'Latency avg/p95/best/worst: '+(successful.length?[avg(successful).toFixed(0), percentile(successful,.95).toFixed(0), Math.min(...successful).toFixed(0), Math.max(...successful).toFixed(0)].join(' / ')+' ms':'â€”'),
+    'Download avg/best: '+(downloads.length?avg(downloads).toFixed(1)+' / '+Math.max(...downloads).toFixed(1)+' Mbps':'â€”'),
+    'Upload avg/best: '+(uploads.length?avg(uploads).toFixed(1)+' / '+Math.max(...uploads).toFixed(1)+' Mbps':'â€”'),
+    'Outages: '+outages.length,
+    'Distance: '+(distanceM>1000?(distanceM/1000).toFixed(2)+' km':Math.round(distanceM)+' m')
+  ].join('\n');
+}
+async function copySummary(){
+  const s=summaryText();
+  try{ await navigator.clipboard.writeText(s); setMsg('Summary copied to clipboard.'); }
+  catch(e){ setMsg(s); }
+}
+window.addEventListener('load',()=>{
+  initMap(); updateStats();
+  setMsg('Ready. Connect to Starlink Wiâ€‘Fi, then start GPS. Use download every 30â€“60s; upload sparingly to save data.');
+  $('startBtn').onclick=requestGPSAndStart;
+  $('noGpsBtn').onclick=startNoGPS;
+  $('stopBtn').onclick=stop;
+  $('clearBtn').onclick=clearAll;
+  $('oneDownload').onclick=runDownload;
+  $('oneUpload').onclick=runUpload;
+  $('centerBtn').onclick=()=>{ if(latestPos&&map) map.setView([latestPos.coords.latitude,latestPos.coords.longitude],16); };
+  $('exportCsv').onclick=exportCSV;
+  $('exportJson').onclick=exportGeoJSON;
+  $('copySummary').onclick=copySummary;
 });
 </script>
 </body>
